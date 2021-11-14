@@ -1,6 +1,6 @@
-import ./lex, std/strformat, std/options
+import ./lex, std/strformat
 type
-  ParseError = object of Exception
+  ParseError = object of ValueError
   BinaryOpKind* = enum
     bokAdd, bokSub, bokMul, bokDiv, bokMod
   
@@ -11,7 +11,7 @@ type
     ekTerm, ekBinary, ekUnary, ekGroup
 
   Expr* {.acyclic.} = ref object 
-    case kind: ExprKind
+    case kind*: ExprKind
     of ekBinary:
       binOp*: BinaryOpKind
       lhs*, rhs*: Expr
@@ -61,6 +61,7 @@ proc check(p: var Parser, options: varargs[TokenKind]): bool =
 proc consume(p: var Parser, kind: TokenKind)=
   if p.current.kind == kind:
     p.advance()
+    return
   raise newException(ParseError, fmt"Expected {kind} but got {p.current.kind}")
 
 proc expression(p: var Parser): Expr
