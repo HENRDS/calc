@@ -2,7 +2,7 @@ import ./lex, std/strformat
 type
   ParseError = object of ValueError
   BinaryOpKind* = enum
-    bokAdd, bokSub, bokMul, bokDiv, bokMod
+    bokAdd, bokSub, bokMul, bokDiv
   
   UnaryOpKind* = enum
     uokPositive, uokNegative
@@ -94,15 +94,13 @@ proc unary(p: var Parser): Expr =
 
 proc mul(p: var Parser): Expr =
   var lhs = p.unary()
-  while p.check(tokStar, tokSlash, tokPercent):
+  while p.check(tokStar, tokSlash):
     let op = 
       case p.current.kind:
         of tokStar:
           bokMul
-        of tokSlash:
-          bokDiv
         else:
-          bokMod
+          bokDiv
 
     p.advance()
     let rhs = p.unary()
@@ -145,7 +143,6 @@ proc `$`*(e: Expr): string =
       of bokSub: "-"
       of bokMul: "*"
       of bokDiv: "/"
-      of bokMod: "%"
 
     fmt"{e.lhs}{op}{e.rhs}"
   of ekUnary:

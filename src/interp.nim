@@ -24,6 +24,4 @@ proc eval*(e: Expr): float =
             lhs * rhs
         of bokDiv:
             lhs / rhs
-        of bokMod:
-            (lhs.toInt() mod rhs.toInt()).toFloat()
 

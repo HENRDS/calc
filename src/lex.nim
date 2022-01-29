@@ -1,25 +1,31 @@
-import parseutils
+import std/[parseutils, strutils]
 
 type
   TokenKind* = enum
-    tokNum, tokPlus, tokMinus, tokStar, tokSlash, tokPercent, tokErr,
-    tokLParen, tokRParen
+    tokNum, tokPlus, tokMinus, tokStar, tokSlash, tokErr,
+    tokLParen, tokRParen, tokEof
   
   Token* = ref object
-      case kind*: TokenKind
-      of tokNum:
-        val*: float
-      of tokErr:
-        message*: string
-      else:
-        discard
+    pos*: Natural
+    case kind*: TokenKind
+    of tokNum:
+      val*: float
+    of tokErr:
+      message*: string
+    else:
+      discard
 
   Lexer* = object
     bufPos: int
     buf: string
-   
 
-proc newLexer*(code: string): Lexer =
+const 
+  WhitespaceChars = {' ', '\t', '\v', '\f', '\c', '\n' }
+
+proc pointToToken*(L: Lexer, tk: Token)=
+  echo L.buf
+  echo repeat(' ', tk.pos) & "^"
+proc initLexer*(code: string): Lexer =
   Lexer(bufPos: 0, buf: code)
 
 proc `$`*(t: Token): string =
@@ -31,63 +37,57 @@ proc `$`*(t: Token): string =
   else:
     "<" & $t.kind & ">"
 
-template isAtEnd(l: Lexer): bool =
-  l.bufPos >= len(l.buf)
+template isAtEnd*(L: Lexer): bool =
+  L.bufPos >= len(L.buf)
   
+template current(L: Lexer): char = 
+  L.buf[L.bufPos]
 
-template current(l: Lexer): char = 
-  l.buf[l.bufPos]
-
-template advance(l: var Lexer) =
-  l.bufPos += 1
-  
-
-proc tryParseNum(l: var Lexer): Token =
+proc parseNum(L: var Lexer): Token =
   var fval: float = 0.0
-  let x: int = parseFloat(l.buf, fval, l.bufPos)
+  let x: int = parseFloat(L.buf, fval, L.bufPos)
+  result = Token(kind: tokNum, val: fval, pos: L.bufPos)
+  inc(L.bufPos, x)
 
-  if x == 0:
-    nil
-  else:
-    l.bufPos += x
-    Token(kind: tokNum, val: fval)
+proc skipWhitespace(L: var Lexer)=
+  while not L.isAtEnd and L.current() in WhitespaceChars:
+    inc(L.bufPos)
 
-proc nextToken(l: var Lexer): Token =
-  case l.current
+proc nextToken*(L: var Lexer): Token =
+  L.skipWhitespace()
+
+  if L.isAtEnd():
+    return Token(kind: tokEof, pos: L.bufPos)
+
+  case L.current()
   of '+': 
-    l.advance()
-    Token(kind: tokPlus)
+    result = Token(kind: tokPlus, pos: L.bufPos)
+    inc(L.bufPos)
   of '-': 
-    l.advance()
-    Token(kind: tokMinus)
+    result = Token(kind: tokMinus, pos: L.bufPos)
+    inc(L.bufPos)
   of '*': 
-    l.advance()
-    Token(kind: tokStar)
+    result = Token(kind: tokStar, pos: L.bufPos)
+    inc(L.bufPos)
   of '/': 
-    l.advance()
-    Token(kind: tokSlash)
-  of '%': 
-    l.advance()
-    Token(kind: tokPercent)
+    result = Token(kind: tokSlash, pos: L.bufPos)
+    inc(L.bufPos)
   of '(':
-    l.advance()
-    Token(kind:tokLParen)
+    result = Token(kind:tokLParen, pos: L.bufPos)
+    inc(L.bufPos)
   of ')':
-    l.advance()
-    Token(kind:tokRParen)
+    result = Token(kind:tokRParen, pos: L.bufPos)
+    inc(L.bufPos)
   of '0'..'9': 
-    l.tryParseNum()
-  of ' ', '\t', '\c', '\n':
-    l.advance()
-    nil
+    result = L.parseNum()
   else:
-    let cur = l.current
-    l.advance()
-    Token(kind: tokErr, message: "Invalid token '" & cur & "'")
+    let cur = L.current()
+    result = Token(kind: tokErr, message: "Invalid token '" & cur & "'", pos: L.bufPos)
+    inc(L.bufPos)
 
 proc tokenize*(code: string): seq[Token] =
   result = newSeq[Token]()
-  var lexer = newLexer(code)
+  var lexer = initLexer(code)
   while not lexer.isAtEnd():
     let tk = lexer.nextToken()
     if not tk.isNil():
